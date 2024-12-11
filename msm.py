@@ -4,14 +4,25 @@ import re
 from cosine import get_cosine_result
 from data import extract_model_words
 
-def perform_msm(potential_matches_block: list[list[int]], all_data: list[dict], known_brands: set[str]):
+
+def optimize_epsilon(potential_matches_block: list[list[int]], all_data: list[dict], known_brands: set[str], real_pairs):
+    epsilon = [0.3, 0.4, 0.45, 0.5, 0.55, 0.6, 0.7, 0.8]
+    F1_result = []
+    for eps in epsilon:
+        clusters = perform_msm(potential_matches_block, all_data, known_brands, eps)
+        pq, pc, f1, frac = evaluate_msm(clusters, real_pairs)
+        print(f"PQ: {pq}, PC: {pc}, F1: {f1}, frac: {frac}")
+        F1_result.append(f1)
+    print(F1_result)
+
+def perform_msm(potential_matches_block: list[list[int]], all_data: list[dict], known_brands: set[str], epsilon):
     matched_pairs = []
     data_size = len(all_data)
     similarity_matrix = np.eye(data_size)
     for block in potential_matches_block:
         # print(block)
         similarity_matrix = perform_msm_per_block(block, all_data, similarity_matrix, known_brands)
-        #Clustering
+        # Clustering
         # n_items = len(block)
         # epsilon = 0.5
         # for x1 in range(0, n_items):
@@ -22,22 +33,24 @@ def perform_msm(potential_matches_block: list[list[int]], all_data: list[dict], 
     similarity_matrix = similarity_matrix - np.eye(data_size)
     print("letsgo Clustering")
     # print([max(similarity_matrix[i]) for i in range(0,10)])
-    hierarchical_clustering(similarity_matrix)
+    clusters = hierarchical_clustering(similarity_matrix, epsilon)
 
-    return 0
+    return clusters
 
-def recursive_search(similarity_matrix, current_cluster, last_cluster= 10000):
+
+def recursive_search(similarity_matrix, current_cluster, last_cluster=10000):
     # new_cluster = similarity_matrix[current_cluster].index(max(similarity_matrix[current_cluster]))
-    new_cluster = [value for value in range(0, len(similarity_matrix[current_cluster])) if (similarity_matrix[current_cluster, value] == max(similarity_matrix[current_cluster]))][0]
+    new_cluster = [value for value in range(0, len(similarity_matrix[current_cluster])) if
+                   (similarity_matrix[current_cluster, value] == max(similarity_matrix[current_cluster]))][0]
     if new_cluster == last_cluster:
         return current_cluster, last_cluster
     else:
         return (recursive_search(similarity_matrix=similarity_matrix,
-                                current_cluster=new_cluster,
-                                last_cluster=current_cluster))
+                                 current_cluster=new_cluster,
+                                 last_cluster=current_cluster))
 
-def hierarchical_clustering(similarity_matrix):
-    epsilon = 0.5
+
+def hierarchical_clustering(similarity_matrix, epsilon):
     clusters = [[index] for index in range(0, len(similarity_matrix))]
     start = 0
     unfinished = True
@@ -51,14 +64,15 @@ def hierarchical_clustering(similarity_matrix):
         if similarity_matrix[cluster_1, cluster_2] > epsilon:
             clusters[cluster_1].extend(clusters[cluster_2])
             clusters.remove(clusters[cluster_2])
-            similarity_matrix[cluster_1] = np.array([min(similarity_matrix[cluster_1, i], similarity_matrix[cluster_2, i]) for
-                                            i in range(0, len(similarity_matrix[cluster_1]))])
-            similarity_matrix = np.delete(similarity_matrix, cluster_2, axis = 0)
+            similarity_matrix[cluster_1] = np.array(
+                [min(similarity_matrix[cluster_1, i], similarity_matrix[cluster_2, i]) for
+                 i in range(0, len(similarity_matrix[cluster_1]))])
+            similarity_matrix = np.delete(similarity_matrix, cluster_2, axis=0)
 
             for i in range(0, len(similarity_matrix)):
                 similarity_matrix[i][cluster_1] = min(similarity_matrix[i, cluster_1], similarity_matrix[i, cluster_2])
 
-            similarity_matrix = np.delete(similarity_matrix, cluster_2, axis = 1)
+            similarity_matrix = np.delete(similarity_matrix, cluster_2, axis=1)
         else:
             start += 1
         if start == len(similarity_matrix):
@@ -67,9 +81,44 @@ def hierarchical_clustering(similarity_matrix):
     print(clusters)
     print(len(clusters))
     print([cluster for cluster in clusters if len(cluster) > 1])
+    print([cluster for cluster in clusters if len(cluster) > 2])
+
+    return [cluster for cluster in clusters if len(cluster) > 1]
 
 
-    return 0
+def evaluate_msm(clustered_pairs, real_pairs):
+    found_comparisons = 0
+    missing_comparison = 0
+    print(clustered_pairs)
+    for real_pair in real_pairs:
+        found = False
+        for comparison in clustered_pairs:
+            if not (real_pair.difference(set(comparison)) & real_pair):
+                found = True
+                break
+        if found:
+            found_comparisons += 1
+        else:
+            missing_comparison += 1
+
+    count_comp = 0
+    for comparison in clustered_pairs:
+        count_comp += len(comparison) * (len(comparison) - 1) / 2
+    # print(len(one_on_one_real_pairs))
+    # print(found_comparisons)
+    # print(missing_comparison)
+    frac_comp = count_comp / (1624 * 1623 / 2)
+    if frac_comp > 1:
+        frac_comp = 1
+    print(f"fraction of comparisons: {count_comp / (1624 * 1623 / 2)}")
+    PQ = found_comparisons / count_comp
+    print(f"PQ: {PQ}")
+    PC = found_comparisons / len(real_pairs)
+    print(f"PC: {PC}")
+    F_star = 2 * PC * PQ / (PC + PQ)
+    print(f"F1*: {F_star}")
+    return PQ, PC, F_star, frac_comp
+
 
 def check_for_same_brand(item_1, item_2, known_brands):
     brand_found = []
@@ -143,7 +192,7 @@ def key_value_pair_comparison(item1_dict, item2_dict):
                     m += 1
                     # print(similarity)
     min_features = min(len(item1_dict), len(item2_dict))
-    return similarity, m/min_features
+    return similarity, m / min_features
 
 
 def jaccard_sim(set1, set2):
@@ -166,11 +215,12 @@ def perform_msm_per_block(product_block: list[int], all_data: list[dict], old_si
                 new_sim_matrix[x2, x1] = -1
             if new_sim_matrix[x2, x1] == 0:
                 similarity, m_weight = key_value_pair_comparison(data_i['featuresMap'], data_j['featuresMap'])
-                theta_1 = (1-mu)*m_weight
+                theta_1 = (1 - mu) * m_weight
                 theta_2 = 1 - mu - theta_1
                 similarity = similarity * theta_1
                 similarity += mu * get_cosine_result(data_i['title'], data_j['title'])
-                all_model_words, sets_of_words = extract_model_words([data_i, data_j], known_brands, include_feature=True)
+                all_model_words, sets_of_words = extract_model_words([data_i, data_j], known_brands,
+                                                                     include_feature=True)
                 similarity += theta_2 * jaccard_sim(sets_of_words[0], sets_of_words[1])
                 new_sim_matrix[x2, x1] = similarity
                 new_sim_matrix[x1, x2] = similarity

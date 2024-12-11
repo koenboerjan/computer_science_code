@@ -1,6 +1,6 @@
-from data import collect_json, transform_features, extract_brands, extract_model_words
-from lsh import create_signature_matrix, return_potential_matches, generate_lsh_plots
-from msm import perform_msm
+from data import collect_json, transform_features, extract_brands, extract_model_words, determine_real_pairs
+from lsh import create_signature_matrix, return_potential_matches, generate_lsh_plots, evaluate_lsh
+from msm import perform_msm, evaluate_msm, optimize_epsilon
 
 if __name__ == '__main__':
     AllTv = collect_json()
@@ -25,11 +25,13 @@ if __name__ == '__main__':
     #             matching += 1
     #         tv_0 = matches[j][i]
     print(matching)
-    # real_pairs = determine_real_pairs(all_tv)
+    real_pairs = determine_real_pairs(AllTv)
     # evaluate_lsh(real_pairs, matches)
     # generate_lsh_plots(signature_matrix=SignatureMatrix,
     #                    all_tv=AllTv)
     print(matches[0])
-    perform_msm(matches, AllTv, known_brands)
+    # clusters = perform_msm(matches, AllTv, known_brands, )
+    # evaluate_msm(clusters, real_pairs)
+    optimize_epsilon(matches, AllTv, known_brands, real_pairs)
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

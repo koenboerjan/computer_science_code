@@ -90,4 +90,13 @@ def determine_real_pairs(complete_dataset: list[dict]):
             matching_models.append(matching_index)
         last_model_id = complete_dataset[index]['modelID']
         index += 1
-    return matching_models
+
+    one_on_one_real_pairs = []
+    for pairs in matching_models:
+        if len(pairs) > 2:
+            for i1 in range(0, len(pairs)):
+                for i2 in range(i1 + 1, len(pairs)):
+                    one_on_one_real_pairs.append({pairs[i1], pairs[i2]})
+        else:
+            one_on_one_real_pairs.append(set(pairs))
+    return one_on_one_real_pairs

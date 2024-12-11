@@ -1,5 +1,6 @@
 import math
 import matplotlib.pyplot as plt
+from data import determine_real_pairs
 
 
 def minhash_function(a, b, max_col):
@@ -81,19 +82,11 @@ def return_potential_matches(signature_matrix: list[list[int]], bands: int):
     return potential_matches
 
 
-def evaluate_lsh(real_pairs: list[list[int]], evaluate_blocks: list[list[int]]):
+def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[list[int]]):
     found_comparisons = 0
     missing_comparison = 0
 
-    one_on_one_real_pairs = []
-    for pairs in real_pairs:
-        if len(pairs) > 2:
-            for i1 in range(0, len(pairs)):
-                for i2 in range(i1 + 1, len(pairs)):
-                    one_on_one_real_pairs.append({pairs[i1], pairs[i2]})
-        else:
-            one_on_one_real_pairs.append(set(pairs))
-    for real_pair in one_on_one_real_pairs:
+    for real_pair in real_pairs:
         found = False
         for comparison in evaluate_blocks:
             if not (real_pair.difference(set(comparison)) & real_pair):
@@ -118,7 +111,7 @@ def evaluate_lsh(real_pairs: list[list[int]], evaluate_blocks: list[list[int]]):
     # print(f"fraction of comparisons: {count_comp/(1624*1623/2)}")
     PQ = found_comparisons / count_comp
     # print(f"PQ: {PQ}")
-    PC = found_comparisons / len(one_on_one_real_pairs)
+    PC = found_comparisons / len(real_pairs)
     # print(f"PC: {PC}")
     F_star = 2 * PC * PQ / (PC + PQ)
     # print(f"F1*: {F_star}")
