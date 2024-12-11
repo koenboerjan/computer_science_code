@@ -1,6 +1,6 @@
 from data import collect_json, transform_features, extract_brands, extract_model_words
 from lsh import create_signature_matrix, return_potential_matches, generate_lsh_plots
-
+from msm import perform_msm
 
 if __name__ == '__main__':
     AllTv = collect_json()
@@ -29,6 +29,7 @@ if __name__ == '__main__':
     # evaluate_lsh(real_pairs, matches)
     # generate_lsh_plots(signature_matrix=SignatureMatrix,
     #                    all_tv=AllTv)
-
+    print(matches[0])
+    perform_msm(matches, AllTv, known_brands)
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
