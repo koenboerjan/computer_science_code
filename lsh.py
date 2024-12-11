@@ -1,17 +1,32 @@
 import math
 import matplotlib.pyplot as plt
 from data import determine_real_pairs
+# import more_itertools as mit
 
 
-def minhash_function(a, b, max_col):
+def minhash_function(a, b, max_col) -> list[int]:
+    """
+    minhash function for pseudo random signature matrix creation.
+
+    :param a: parameter in function
+    :param b: parameter in function
+    :param max_col: length of binary vector
+    :return: vector of minhash values of length of binary vector
+    """
     buckets = 2000
     return [(a * x + b) % buckets for x in range(1, max_col)]
 
 
-def create_signature_matrix(all_model_words: set[str], model_words_per_tv: list[set[str]]):
+def create_signature_matrix(all_model_words: set[str], model_words_per_tv: list[set[str]]) -> list[list[int]]:
+    """
+    Create a signature matrix for all different tvs, based on model words found for every tv.
+
+    :param all_model_words: total set of model words
+    :param model_words_per_tv: set of model words per tv
+    :return: signature matrix
+    """
     length_minhash = len(all_model_words)
     a = [11, 13, 15, 17, 19, 23, 29, 31, 37, 41]
-    # 23, 29, 31, 37, 41
     b = [1, 5, 3, 6, 2, 7]
     min_hashes = []
     for i in range(0, len(b)):
@@ -39,6 +54,13 @@ def create_signature_matrix(all_model_words: set[str], model_words_per_tv: list[
 
 
 def hash_signature(sig_values: list[int], band: int) -> int:
+    """
+    Hashes signature to specific bucket.
+
+    :param sig_values: values of signature in specific band
+    :param band: index of band
+    :return: bucket_id
+    """
     power_val = len(sig_values)
     bucket = band * 10 ** ((power_val + 1) * 3)
     for i in range(0, power_val):
@@ -46,11 +68,19 @@ def hash_signature(sig_values: list[int], band: int) -> int:
     return bucket
 
 
-def return_potential_matches(signature_matrix: list[list[int]], bands: int):
+def return_candidate_pairs(signature_matrix: list[list[int]], bands: int) -> list[set[int]]:
+    """
+    Return potential matches based on if they hash bands to the same bucket.
+
+    :param signature_matrix: signature matrix of observations
+    :param bands: total count of bands
+    :return: list of sets of tvs which hash to the same bucket and are candidate pairs.
+    """
     n_rows = len(signature_matrix[1])
     band_size = math.floor(n_rows / bands)
     if n_rows % bands != 0:
         raise RuntimeError("rows and bands not dividable")
+
     potential_matches = []
     for i in range(0, bands):
         band_max = (i + 1) * band_size
@@ -59,40 +89,35 @@ def return_potential_matches(signature_matrix: list[list[int]], bands: int):
         buckets_sig_hash = []
 
         for tv_sig in signature_matrix:
-            bucket_sig_hash = hash_signature(sig_values=tv_sig[band_min: band_max], band=i)
+            bucket_sig_hash = hash_signature(sig_values=tv_sig[band_min: band_max],
+                                             band=i)
             if bucket_sig_hash in buckets_sig_hash:
                 buckets_with_matches.add(bucket_sig_hash)
             buckets_sig_hash.append(bucket_sig_hash)
 
         for match in buckets_with_matches:
-            matching_tv = [tv_index for tv_index in range(0, len(buckets_sig_hash) - 1) if
-                           buckets_sig_hash[tv_index] == match]
+            matching_tv = set([tv_index for tv_index in range(0, len(buckets_sig_hash) - 1) if
+                               buckets_sig_hash[tv_index] == match])
             potential_matches.append(matching_tv)
-
-    # return_groups = set()
-    # count = 0
-    # count_comp = 0
-    # for buckets_with_matches in potential_matches:
-    #     if set(buckets_with_matches) & return_groups:
-    #         count += 1
-    #     count_comp += len(buckets_with_matches) * (len(buckets_with_matches) - 1) / 2
-    #     return_groups = return_groups | set(buckets_with_matches)
-    # print(count)
-    # print(count_comp)
     return potential_matches
 
 
-def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[list[int]]):
+def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[set[int]]) -> (float, float, float, float):
+    """
+    Compute evaluation values for lsh
+
+    :param real_pairs: real pairs within dataset
+    :param evaluate_blocks: blocks of candidate pairs determined by lsh
+    :return: different scores
+    """
     found_comparisons = 0
     missing_comparison = 0
 
     for real_pair in real_pairs:
         found = False
         for comparison in evaluate_blocks:
-            if not (real_pair.difference(set(comparison)) & real_pair):
+            if not (real_pair.difference(comparison) & real_pair):
                 found = True
-                # print(comparison)
-                # print(real_pair)
                 break
         if found:
             found_comparisons += 1
@@ -102,23 +127,30 @@ def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[list[int]]):
     count_comp = 0
     for comparison in evaluate_blocks:
         count_comp += len(comparison) * (len(comparison) - 1) / 2
-    # print(len(one_on_one_real_pairs))
-    # print(found_comparisons)
-    # print(missing_comparison)
     frac_comp = count_comp / (1624 * 1623 / 2)
+
+    #Correct for comparison more than 1, then using lsh does not have positive effect.
     if frac_comp > 1:
         frac_comp = 1
     # print(f"fraction of comparisons: {count_comp/(1624*1623/2)}")
-    PQ = found_comparisons / count_comp
-    # print(f"PQ: {PQ}")
-    PC = found_comparisons / len(real_pairs)
-    # print(f"PC: {PC}")
-    F_star = 2 * PC * PQ / (PC + PQ)
-    # print(f"F1*: {F_star}")
-    return PQ, PC, F_star, frac_comp
+    pq = found_comparisons / count_comp
+    # print(f"pq: {pq}")
+    pc = found_comparisons / len(real_pairs)
+    # print(f"pc: {pc}")
+    f_star = 2 * pc * pq / (pc + pq)
+    # print(f"F1*: {f_star}")
+    return pq, pc, f_star, frac_comp
 
 
-def generate_lsh_plots(signature_matrix, all_tv):
+def generate_lsh_summary_and_plots(signature_matrix: list[list[int]], all_tv: list[dict]):
+    """
+    Generate summary data and performance for different band sizes of LSH, iterating 5 times as model words set
+    has random order.
+
+    :param signature_matrix: signature matrix created by lsh
+    :param all_tv: all tv dataset
+    :return: plots and summary
+    """
     test_bands = [2, 3, 4, 5, 6, 10, 12, 15, 20, 30]
     pq_plot = []
     pc_plot = []
@@ -132,9 +164,10 @@ def generate_lsh_plots(signature_matrix, all_tv):
         iterations = 5
         real_pairs = determine_real_pairs(all_tv)
         for i in range(0, iterations):
-            matches = return_potential_matches(bands=test_band,
-                                               signature_matrix=signature_matrix)
-            run_pq, run_pc, run_f1, run_frac = evaluate_lsh(real_pairs, matches)
+            matches = return_candidate_pairs(bands=test_band,
+                                             signature_matrix=signature_matrix)
+            run_pq, run_pc, run_f1, run_frac = evaluate_lsh(real_pairs=real_pairs,
+                                                            evaluate_blocks=matches)
             pq_mean += 1 / iterations * run_pq
             pc_mean += 1 / iterations * run_pc
             f1_mean += 1 / iterations * run_f1
@@ -149,7 +182,8 @@ def generate_lsh_plots(signature_matrix, all_tv):
     plt.show()
     plt.plot(frac_plot, f1_plot)
     plt.show()
-    print(f"fraction: {frac_plot} \n"
+    print(f"bands: {test_bands} \n"
+          f"fraction: {frac_plot} \n"
           f"pq: {pq_plot} \n"
           f"pc: {pc_plot} \n"
           f"f1: {f1_plot}")
