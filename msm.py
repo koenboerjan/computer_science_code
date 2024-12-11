@@ -1,4 +1,8 @@
 
+
+def
+
+
 def perform_msm_per_block(product_block: list[int], all_data: list[dict]):
     # part 0
 

@@ -1,24 +1,5 @@
-import json
-import random
-import re
-import math
-import random
-import more_itertools as mit
-import matplotlib.pyplot as plt
-
-
-def perform_msm_per_block(product_block: list[int], all_data: list[dict]):
-    # part 0
-
-    # part one
-    # title similarity
-
-    # part two, key value pair
-    #
-    return 0
-
-
-
+from data import collect_json, transform_features, extract_brands, extract_model_words
+from lsh import create_signature_matrix, return_potential_matches, generate_lsh_plots
 
 
 if __name__ == '__main__':
@@ -46,8 +27,8 @@ if __name__ == '__main__':
     print(matching)
     # real_pairs = determine_real_pairs(all_tv)
     # evaluate_lsh(real_pairs, matches)
-    generate_lsh_plots(signature_matrix=SignatureMatrix,
-                       all_tv=AllTv)
+    # generate_lsh_plots(signature_matrix=SignatureMatrix,
+    #                    all_tv=AllTv)
 
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
