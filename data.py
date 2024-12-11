@@ -31,15 +31,16 @@ def extract_brands(data: list[dict]) -> set[str]:
     return set(different_brands)
 
 
-def extract_model_words(data: list[dict], known_brands: set) -> (set[str], list[set[str]]):
+def extract_model_words(data: list[dict], known_brands: set, include_feature: bool = False) -> (set[str], list[set[str]]):
     model_words_regex = re.compile('[a-zA-Z0-9]*(([0-9]+[ˆ0-9,]+)|([ˆ0-9,]+[0-9]+))[a-zA-Z0-9]*')
     mw_per_product = []
     all_model_words = set()
     for item in data:
         model_set = set(item['title'].lower().split())
-        # for feature_key in item['featuresMap'].keys():
-        #     features_value = item['featuresMap'][feature_key].lower().split()
-        #     model_set.update(set(features_value))
+        if include_feature:
+            for feature_key in item['featuresMap'].keys():
+                features_value = item['featuresMap'][feature_key].lower().split()
+                model_set.update(set(features_value))
 
         brand = model_set & known_brands
         model_words = set(filter(model_words_regex.match, model_set))
