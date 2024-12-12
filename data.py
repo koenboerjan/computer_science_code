@@ -1,5 +1,6 @@
 import json
 import re
+import random
 
 
 def collect_json() -> list[dict]:
@@ -18,6 +19,27 @@ def collect_json() -> list[dict]:
         #     print(json_data[model_id])
         data.extend(json_data[model_id])
     return data
+
+
+def bootstrap_sample() -> (list[dict], list[dict]):
+    """
+    Collect all data from json and seperate tv's witin one modelID
+
+    :return: list of dict
+    """
+    with open('/Users/koenboerjan/Documents/Econometrie/Master/Computer science for bussines analytics/Paper/TVs-all-merged.json',
+            'r') as file:
+        json_data = json.load(file)
+    data_ids = [model_id for model_id in json_data.keys()]
+    training_sample_id = random.sample(data_ids, round(0.63 * len(data_ids)))
+    training_data = []
+    test_data = []
+    for model_id in json_data.keys():
+        if model_id in training_sample_id:
+            training_data.extend(json_data[model_id])
+        else:
+            test_data.extend(json_data[model_id])
+    return training_data, test_data
 
 
 def transform_features(data: list[dict]) -> list[dict]:
@@ -115,7 +137,7 @@ def determine_real_pairs(complete_dataset: list[dict]) -> list[set[int]]:
     index = 1
     while index < len(complete_dataset):
         matching_index = [index - 1]
-        while last_model_id == complete_dataset[index]['modelID']:
+        while last_model_id == complete_dataset[index]['modelID'] and index < len(complete_dataset) - 1:
             matching_index.append(index)
             last_model_id = complete_dataset[index]['modelID']
             index += 1

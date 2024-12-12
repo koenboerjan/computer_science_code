@@ -68,7 +68,7 @@ def hash_signature(sig_values: list[int], band: int) -> int:
     return bucket
 
 
-def return_candidate_pairs(signature_matrix: list[list[int]], bands: int) -> list[set[int]]:
+def return_candidate_pairs(signature_matrix: list[list[int]], bands: int) -> list[list[int]]:
     """
     Return potential matches based on if they hash bands to the same bucket.
 
@@ -96,13 +96,13 @@ def return_candidate_pairs(signature_matrix: list[list[int]], bands: int) -> lis
             buckets_sig_hash.append(bucket_sig_hash)
 
         for match in buckets_with_matches:
-            matching_tv = set([tv_index for tv_index in range(0, len(buckets_sig_hash) - 1) if
-                               buckets_sig_hash[tv_index] == match])
+            matching_tv = [tv_index for tv_index in range(0, len(buckets_sig_hash) - 1) if
+                               buckets_sig_hash[tv_index] == match]
             potential_matches.append(matching_tv)
     return potential_matches
 
 
-def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[set[int]]) -> (float, float, float, float):
+def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[list[int]], len_dataset: int) -> (float, float, float, float):
     """
     Compute evaluation values for lsh
 
@@ -116,7 +116,7 @@ def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[set[int]]) ->
     for real_pair in real_pairs:
         found = False
         for comparison in evaluate_blocks:
-            if not (real_pair.difference(comparison) & real_pair):
+            if not (real_pair.difference(set(comparison)) & real_pair):
                 found = True
                 break
         if found:
@@ -127,7 +127,7 @@ def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[set[int]]) ->
     count_comp = 0
     for comparison in evaluate_blocks:
         count_comp += len(comparison) * (len(comparison) - 1) / 2
-    frac_comp = count_comp / (1624 * 1623 / 2)
+    frac_comp = count_comp / (len_dataset * (len_dataset - 1) / 2)
 
     #Correct for comparison more than 1, then using lsh does not have positive effect.
     if frac_comp > 1:
@@ -167,7 +167,8 @@ def generate_lsh_summary_and_plots(signature_matrix: list[list[int]], all_tv: li
             matches = return_candidate_pairs(bands=test_band,
                                              signature_matrix=signature_matrix)
             run_pq, run_pc, run_f1, run_frac = evaluate_lsh(real_pairs=real_pairs,
-                                                            evaluate_blocks=matches)
+                                                            evaluate_blocks=matches,
+                                                            len_dataset=len(all_tv))
             pq_mean += 1 / iterations * run_pq
             pc_mean += 1 / iterations * run_pc
             f1_mean += 1 / iterations * run_f1

@@ -17,23 +17,36 @@ def optimize_epsilon(potential_matches_block: list[list[int]], all_data: list[di
     :return:
     """
     f1_base = 0
-    improvement = 0
-    epsilon = 0.4
-    F1_result = []
-    while improvement < 2:
-        clusters = perform_msm(potential_matches_block, all_data, known_brands, epsilon)
-        pq, pc, f1, frac = evaluate_msm(clusters, real_pairs)
-        print(epsilon)
-        print(f"PQ: {pq}, PC: {pc}, F1: {f1}, frac: {frac}")
-        F1_result.append(f1)
+    no_improvement = 0
+    epsilon = 0.52
+    best_epsilon = epsilon
+    f1_result = []
+
+    data_size = len(all_data)
+    similarity_matrix = np.eye(data_size)
+    for block in potential_matches_block:
+        similarity_matrix = perform_msm_per_block(block, all_data, similarity_matrix, known_brands)
+    similarity_matrix = similarity_matrix - np.eye(data_size)
+    clusters = [[index] for index in range(0, len(similarity_matrix))]
+
+    while no_improvement < 2:
+        clusters, similarity_matrix = hierarchical_clustering(similarity_matrix, epsilon, clusters)
+        cluster_set = [set(cluster) for cluster in clusters if len(cluster) > 1]
+        pq, pc, f1, frac = evaluate_msm(cluster_set, real_pairs, len(all_data))
+        # print(epsilon)
+        # print(f"PQ: {pq}, PC: {pc}, F1: {f1}, frac: {frac}")
+        f1_result.append(f1)
         if f1 > f1_base:
-            improvement = 0
+            no_improvement = 0
             f1_base = f1
+            best_epsilon = epsilon
         else:
-            improvement += 1
-        epsilon += 0.02
-    print(F1_result)
-    return epsilon
+            no_improvement += 1
+        epsilon -= 0.02
+        print(f1_base)
+        print(epsilon)
+    # print(f1_result)
+    return best_epsilon
 
 
 def perform_msm(potential_matches_block: list[list[int]], all_data: list[dict],
@@ -55,15 +68,17 @@ def perform_msm(potential_matches_block: list[list[int]], all_data: list[dict],
     similarity_matrix = similarity_matrix - np.eye(data_size)
     print("letsgo Clustering")
     # print([max(similarity_matrix[i]) for i in range(0,10)])
-    clusters = hierarchical_clustering(similarity_matrix, epsilon)
+    clusters_base = [[index] for index in range(0, len(similarity_matrix))]
+    clusters, similarity_matrix = hierarchical_clustering(similarity_matrix, epsilon, clusters_base)
 
-    return clusters
+    return [set(cluster) for cluster in clusters if len(cluster) > 1]
 
 
 def recursive_search(similarity_matrix, current_cluster, last_cluster=10000) -> (int, int):
     # new_cluster = similarity_matrix[current_cluster].index(max(similarity_matrix[current_cluster]))
     new_cluster = [value for value in range(0, len(similarity_matrix[current_cluster])) if
                    (similarity_matrix[current_cluster, value] == max(similarity_matrix[current_cluster]))][0]
+    print(new_cluster)
     if new_cluster == last_cluster:
         return current_cluster, last_cluster
     else:
@@ -72,46 +87,82 @@ def recursive_search(similarity_matrix, current_cluster, last_cluster=10000) -> 
                                  last_cluster=current_cluster))
 
 
-def hierarchical_clustering(similarity_matrix, epsilon) -> list[set[int]]:
-    clusters = [[index] for index in range(0, len(similarity_matrix))]
-    start = 0
+def clustering_search(similarity_matrix):
+    max_sim = 0
+    cluster_1 = 0
+    cluster_2 = 0
+    for x1 in range(0, len(similarity_matrix)):
+        for x2 in range(0, len(similarity_matrix)):
+            if max_sim < similarity_matrix[x1, x2]:
+                max_sim = similarity_matrix[x1, x2]
+                cluster_1 = x1
+                cluster_2 = x2
+    return cluster_1, cluster_2
+
+
+def hierarchical_clustering(similarity_matrix, epsilon, clusters) -> (list[set[int]], list[list[int]]):
     unfinished = True
     while unfinished:
-        while max(similarity_matrix[start]) < epsilon and start < len(similarity_matrix) - 1:
-            # print(max(similarity_matrix[start]))
-            start += 1
-            # print(start)
-        # print(max(similarity_matrix[start]))
-        cluster_1, cluster_2 = recursive_search(similarity_matrix, start)
+        cluster_1, cluster_2 = clustering_search(similarity_matrix)
         if similarity_matrix[cluster_1, cluster_2] > epsilon:
             clusters[cluster_1].extend(clusters[cluster_2])
             clusters.remove(clusters[cluster_2])
             similarity_matrix[cluster_1] = np.array(
-                [(similarity_matrix[cluster_1, i] + similarity_matrix[cluster_2, i])/2 for
+                [min(similarity_matrix[cluster_1, i], similarity_matrix[cluster_2, i]) for
                  i in range(0, len(similarity_matrix[cluster_1]))])
             similarity_matrix = np.delete(similarity_matrix, cluster_2, axis=0)
 
             for i in range(0, len(similarity_matrix)):
-                similarity_matrix[i][cluster_1] = (similarity_matrix[i, cluster_1] + similarity_matrix[i, cluster_2])/2
+                similarity_matrix[i][cluster_1] = min(similarity_matrix[i, cluster_1],
+                                                      similarity_matrix[i, cluster_2])
 
             similarity_matrix = np.delete(similarity_matrix, cluster_2, axis=1)
         else:
-            start += 1
-        if start == len(similarity_matrix):
             unfinished = False
-
-    print(clusters)
-    print(len(clusters))
-    print([cluster for cluster in clusters if len(cluster) > 1])
-    print([cluster for cluster in clusters if len(cluster) > 2])
-
-    return [set(cluster) for cluster in clusters if len(cluster) > 1]
+    return clusters, similarity_matrix
 
 
-def evaluate_msm(clustered_pairs, real_pairs):
+# def hierarchical_clustering(similarity_matrix, epsilon) -> list[set[int]]:
+#     clusters = [[index] for index in range(0, len(similarity_matrix))]
+#     start = 0
+#     unfinished = True
+#     while unfinished:
+#         while max(similarity_matrix[start]) < epsilon and start < len(similarity_matrix) - 1:
+#             # print(max(similarity_matrix[start]))
+#             start += 1
+#             # print(start)
+#         # print(max(similarity_matrix[start]))
+#         cluster_1, cluster_2 = recursive_search(similarity_matrix, start)
+#         if similarity_matrix[cluster_1, cluster_2] > epsilon:
+#             clusters[cluster_1].extend(clusters[cluster_2])
+#             clusters.remove(clusters[cluster_2])
+#             similarity_matrix[cluster_1] = np.array(
+#                 [min(similarity_matrix[cluster_1, i], similarity_matrix[cluster_2, i]) for
+#                  i in range(0, len(similarity_matrix[cluster_1]))])
+#             similarity_matrix = np.delete(similarity_matrix, cluster_2, axis=0)
+#
+#             for i in range(0, len(similarity_matrix)):
+#                 similarity_matrix[i][cluster_1] = min(similarity_matrix[i, cluster_1], similarity_matrix[i, cluster_2])
+#
+#             similarity_matrix = np.delete(similarity_matrix, cluster_2, axis=1)
+#         else:
+#             start += 1
+#         if start == len(similarity_matrix):
+#             unfinished = False
+
+# # print(clusters)
+# # print(len(clusters))
+# # print([cluster for cluster in clusters if len(cluster) > 1])
+# # print([cluster for cluster in clusters if len(cluster) > 2])
+#
+# return [set(cluster) for cluster in clusters if len(cluster) > 1]
+
+
+def evaluate_msm(clustered_pairs, real_pairs, len_data):
     found_comparisons = 0
     missing_comparison = 0
     print(clustered_pairs)
+    print(real_pairs)
     for real_pair in real_pairs:
         found = False
         for comparison in clustered_pairs:
@@ -129,37 +180,23 @@ def evaluate_msm(clustered_pairs, real_pairs):
     # print(len(one_on_one_real_pairs))
     # print(found_comparisons)
     # print(missing_comparison)
-    frac_comp = count_comp / (1624 * 1623 / 2)
+    frac_comp = count_comp / (len_data * (len_data - 1) / 2)
     if frac_comp > 1:
         frac_comp = 1
-    print(f"fraction of comparisons: {count_comp / (1624 * 1623 / 2)}")
+    # print(f"fraction of comparisons: {count_comp / (1624 * 1623 / 2)}")
     PQ = found_comparisons / count_comp
-    print(f"PQ: {PQ}")
+    # print(f"PQ: {PQ}")
     PC = found_comparisons / len(real_pairs)
-    print(f"PC: {PC}")
-    F_star = 2 * PC * PQ / (PC + PQ)
-    print(f"F1*: {F_star}")
+    # print(f"PC: {PC}")
+    if (PC + PQ) != 0:
+        F_star = 2 * PC * PQ / (PC + PQ)
+    else:
+        F_star = 0
+    # print(f"F1*: {F_star}")
     return PQ, PC, F_star, frac_comp
 
 
 def check_for_same_brand(item_1, item_2, known_brands):
-    brand_found = []
-    i = 0
-    for item in [item_1, item_2]:
-        item_set = set(item['title'].lower().split())
-        try:
-            item_set.add(item['featuresMap']['Brand'])
-        except:
-            pass
-        brand_found.append(item_set & known_brands)
-        i += 1
-    if not (brand_found[0] and brand_found[1]):
-        return True
-    else:
-        return brand_found[0] & brand_found[1]
-
-
-def check_for_same_shop(item_1, item_2):
     brand_found = []
     i = 0
     for item in [item_1, item_2]:
