@@ -1,1 +1,1 @@
-This project has been created in 
+This project has been created as part of the course "Computer Science for Business Analytics (FEM21037)" and tackles the problem of duplicate detection for a dataset of televisions in webshops. The proposed algorithm uses Multi-component Similarity Measure combined with Locality sensitive Hashing. To obtain the results which have been reporte in a seperate paper, the functions in main.py can be run independently.
