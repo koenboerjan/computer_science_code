@@ -1,6 +1,6 @@
 import math
 import matplotlib.pyplot as plt
-from data import determine_real_pairs
+from data import determine_real_duplicates
 # import more_itertools as mit
 
 
@@ -74,7 +74,7 @@ def return_candidate_pairs(signature_matrix: list[list[int]], bands: int) -> lis
 
     :param signature_matrix: signature matrix of observations
     :param bands: total count of bands
-    :return: list of sets of tvs which hash to the same bucket and are candidate pairs.
+    :return: list of list of tvs which hash to the same bucket and are candidate pairs.
     """
     n_rows = len(signature_matrix[1])
     band_size = math.floor(n_rows / bands)
@@ -102,40 +102,42 @@ def return_candidate_pairs(signature_matrix: list[list[int]], bands: int) -> lis
     return potential_matches
 
 
-def evaluate_lsh(real_pairs: list[set[int]], evaluate_blocks: list[list[int]], len_dataset: int) -> (float, float, float, float):
+def evaluate_lsh(real_duplicates: list[set[int]], evaluate_blocks: list[list[int]], observations_count: int) -> (float, float, float, float):
     """
     Compute evaluation values for lsh
 
-    :param real_pairs: real pairs within dataset
+    :param observations_count: amount of observations which are evaluated
+    :param real_duplicates: real pairs within dataset
     :param evaluate_blocks: blocks of candidate pairs determined by lsh
     :return: different scores
     """
-    found_comparisons = 0
-    missing_comparison = 0
+    found_duplicate = 0
+    missing_duplicates = 0
 
-    for real_pair in real_pairs:
+    for duplicate in real_duplicates:
         found = False
         for comparison in evaluate_blocks:
-            if not (real_pair.difference(set(comparison)) & real_pair):
+            if not (duplicate.difference(set(comparison)) & duplicate):
                 found = True
                 break
         if found:
-            found_comparisons += 1
+            found_duplicate += 1
         else:
-            missing_comparison += 1
+            missing_duplicates += 1
 
     count_comp = 0
     for comparison in evaluate_blocks:
         count_comp += len(comparison) * (len(comparison) - 1) / 2
-    frac_comp = count_comp / (len_dataset * (len_dataset - 1) / 2)
+    frac_comp = count_comp / (observations_count * (observations_count - 1) / 2)
 
     #Correct for comparison more than 1, then using lsh does not have positive effect.
     if frac_comp > 1:
         frac_comp = 1
+
     # print(f"fraction of comparisons: {count_comp/(1624*1623/2)}")
-    pq = found_comparisons / count_comp
+    pq = found_duplicate / count_comp
     # print(f"pq: {pq}")
-    pc = found_comparisons / len(real_pairs)
+    pc = found_duplicate / len(real_duplicates)
     # print(f"pc: {pc}")
     f_star = 2 * pc * pq / (pc + pq)
     # print(f"F1*: {f_star}")
@@ -162,13 +164,13 @@ def generate_lsh_summary_and_plots(signature_matrix: list[list[int]], all_tv: li
         f1_mean = 0
         frac_comp_mean = 0
         iterations = 5
-        real_pairs = determine_real_pairs(all_tv)
+        real_pairs = determine_real_duplicates(all_tv)
         for i in range(0, iterations):
             matches = return_candidate_pairs(bands=test_band,
                                              signature_matrix=signature_matrix)
-            run_pq, run_pc, run_f1, run_frac = evaluate_lsh(real_pairs=real_pairs,
+            run_pq, run_pc, run_f1, run_frac = evaluate_lsh(real_duplicates=real_pairs,
                                                             evaluate_blocks=matches,
-                                                            len_dataset=len(all_tv))
+                                                            observations_count=len(all_tv))
             pq_mean += 1 / iterations * run_pq
             pc_mean += 1 / iterations * run_pc
             f1_mean += 1 / iterations * run_f1

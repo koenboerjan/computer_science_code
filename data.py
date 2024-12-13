@@ -5,7 +5,7 @@ import random
 
 def collect_json() -> list[dict]:
     """
-    Collect all data from json and seperate tv's witin one modelID
+    Collect all data from json and separate tv's within one modelID
 
     :return: list of dict
     """
@@ -23,9 +23,9 @@ def collect_json() -> list[dict]:
 
 def bootstrap_sample() -> (list[dict], list[dict]):
     """
-    Collect all data from json and seperate tv's witin one modelID
+    Create bootstrap sample with 63% of the model id's in training sample 37% in test sample
 
-    :return: list of dict
+    :return: two lists of dict, training and test sample
     """
     with open('/Users/koenboerjan/Documents/Econometrie/Master/Computer science for bussines analytics/Paper/TVs-all-merged.json',
             'r') as file:
@@ -124,9 +124,9 @@ def reformat_model_words(unformatted: set[str]) -> set[str]:
     return formatted
 
 
-def determine_real_pairs(complete_dataset: list[dict]) -> list[set[int]]:
+def determine_real_duplicates(complete_dataset: list[dict]) -> list[set[int]]:
     """
-    Find all real pairs within the dataset based on same model id. Dataset is assumed to be ordered,
+    Find all real duplicates within the dataset based on same model id. Dataset is assumed to be ordered,
     two items with same model id are next to each other.
 
     :param complete_dataset: ordered data of tvs
